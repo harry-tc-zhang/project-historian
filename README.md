@@ -1,4 +1,4 @@
-## Project Historian
+# Project Historian
 
 Project Historian is a software tool that aims to automatically generate news timelines from news archives. It was developed with journalists in mind, with the goal of assisting them in background research and storytelling with richer context. It uses natural language processing technologies to discover news stories related to a certain topic and then group them according to thematic similarity.
 
