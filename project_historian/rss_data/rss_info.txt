@@ -1,0 +1,17 @@
+{
+    "Washington Post Politics": "http://feeds.washingtonpost.com/rss/politics",
+    "Washington Post National": "http://feeds.washingtonpost.com/rss/national",
+    "Washington Post World": "http://feeds.washingtonpost.com/rss/world",
+    "Washington Post Business": "http://feeds.washingtonpost.com/rss/business",
+    "WSJ World News": "http://www.wsj.com/xml/rss/3_7085.xml",
+    "WSJ US Business": "http://www.wsj.com/xml/rss/3_7014.xml",
+    "WSJ Markets News": "http://www.wsj.com/xml/rss/3_7031.xml",
+    "Reuters US News": "http://feeds.reuters.com/Reuters/domesticNews",
+    "Reuters World News": "http://feeds.reuters.com/Reuters/worldNews",
+    "Vox": "https://www.vox.com/rss/index.xml",
+    "CNN": "http://rss.cnn.com/rss/cnn_latest.rss",
+    "NY Times": "http://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml",
+    "NY Times US Politics": "http://rss.nytimes.com/services/xml/rss/nyt/Politics.xml",
+    "USA Today Top Stories": "http://rssfeeds.usatoday.com/usatoday-NewsTopStories",
+    "USA Today Washington": "http://rssfeeds.usatoday.com/usatoday-NewsTopStories"
+}

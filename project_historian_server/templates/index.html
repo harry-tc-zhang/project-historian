@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <!--Import Google Icon Font-->
+    <link href='https://fonts.googleapis.com/icon?family=Material+Icons' rel='stylesheet'>
+    <!--Import materialize.css-->
+    <link rel='stylesheet' href='static/css/materialize.css'>
+    <link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis-timeline-graph2d.min.css' />
+    <link rel='stylesheet' href='https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css'>
+    <link rel='stylesheet' href='static/css/historian.css'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'/>
+    <title>Project Historian</title>
+</head>
+
+<body>
+
+<nav>
+    <div class='nav-wrapper'>
+        <a href='#' class='brand-logo center'>Project Historian</a>
+    </div>
+</nav>
+
+<div class='container' style='margin-top:20px'>
+    <div class='row'>
+        <div class='col s12'>
+            <div class='card'>
+                <div class='card-content'>
+                    <span class='card-title'>Create timelines from simple queries</span>
+                    <br>
+                    <p>What is the question?</p>
+                    <p>Enter your query keywords separated by ",". You can enter phrases.</p>
+                    <br>
+                    <form>
+                        <div class="row" style="margin-bottom:0px">
+                            <div class='input-field col s12' style='margin-bottom:0px'>
+                                <input id='form_keywords' type='text'>
+                                <label for='form_keywords'>Keywords</label>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class='card-action'>
+                    <a id='submit_keywords' href='#'>Search</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class='row' id='card_exp_keywords' style='display:none'>
+        <div class='col s12'>
+            <div class='card'>
+                <div class='card-content'>
+                    <span class='card-title'>Related keywords</span>
+                    <br>
+                    <p>Here are some keywords that might help broaden your search.</p>
+                    <p>If you find a word irrelevant, you can delete it.</p>
+                    <br>
+                    <div id='div_exp_keywords'></div>
+                </div>
+                <div class='card-action'>
+                    <a id='submit_new_kw' href='#'>Continue</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class='row' id='timeline_raw' style='display:none'>
+        <div class='col s12'>
+            <div class='card'>
+                <div class='card-content'>
+                    <span class='card-title'>Here are the events</span>
+                    <br>
+                    <p>You can give each event a title, edit them or remove them entirely.</p>
+                    <br>
+                    <div id='timeline_raw_content'></div>
+                </div>
+                <div class='card-action'>
+                    <a id='submit_timeline' href='#'>Make the timeline</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class='row' id='timeline_final' style='display:none'>
+        <div class='col s12'>
+            <div class='card'>
+                <div class='card-content'>
+                    <span class='card-title'>Here is the timeline</span>
+                    <br>
+                    <div>
+                        <div id='timeline_container'></div>
+                    </div>
+                </div>
+                <div class='card-action'>
+                    <a id='export_timeline' href='#'>Export graphic</a>
+                    <a id='export_json' href='#'>Export JSON</a>
+                    <a id='export_excel' href='#'>Export Excel</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id='progress' class='modal bottom-sheet'>
+        <div class='modal-content'>
+            <h5>Progress</h5>
+            <br>
+            <div class='progress'>
+                <div class='indeterminate'></div>
+            </div>
+            <br>
+            <div id='progress_text'></div>
+        </div>
+    </div>
+
+    <div id='export' class='modal modal-fixed-footer'>
+        <div class='modal-content'>
+            <h5>Export your timeline</h5>
+            <p>Your timeline is contained in the following code. Download the code and embed it in your story.</p>
+            <div id='export_editor'></div>
+        </div>
+        <div class='modal-footer'>
+            <a href='#' id='timeline_download' class='modal-action modal-close waves-effect waves-green btn-flat'>Download the code</a>
+        </div>
+    </div>
+</div>
+
+<!--JavaScript at end of body for optimized loading-->
+<script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+<script src='https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0-alpha.3/js/materialize.min.js'></script>
+<script src='https://cdnjs.cloudflare.com/ajax/libs/handlebars.js/4.0.11/handlebars.js'></script>
+<script src='https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis-timeline-graph2d.min.js'></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.3.0/ace.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/0.9.1/exceljs.min.js"></script>
+
+{% raw %}
+<!-- Handlebars templates -->
+
+<script id='progress_item_template' type='text/x-handlebars-template'>
+<div style='display:flex; align-items:center; padding-top:10px; padding-bottom:10px'>
+    <i class="material-icons">{{icon}}</i>
+    &nbsp
+    <span>{{text}}</span>
+</div>
+</script>
+
+<script id='raw_timeline_template' type='text/x-handlebars-template'>
+<ul class='collapsible'>
+    {{#each clusters}}
+        {{>item_partial this}}
+    {{/each}}
+</ul>
+</script>
+
+<script id='raw_timeline_item' type='text/x-handlebars-template'>
+    <li class='timeline_raw_li' forCluster={{key}}>
+        <div class='collapsible-header'>
+            <label forCluster={{key}} class='event_checkbox_wrapper'><input class='event_checkbox filled-in' type='checkbox' {{#if selected}} checked="checked" {{/if}}/><span></span></label>
+            <span class='raw_timeline_timestamp'>{{convert_timestamp_date timestamp}}</span>
+            <span class='raw_timeline_title' forCluster={{key}}>{{title}}</span>
+            <span class='new badge pink {{get_badge_accent stories}} timeline_raw_badge' forCluster={{key}} data-badge-caption='stories'>{{numkeys stories}}</span>
+        </div>
+        <div class='collapsible-body'>
+            <div class='input-field' forCluster={{key}}>
+                <input value='{{title}}' class='cluster_title' type='text' />
+                <label class='active'>Title</label>
+            </div>
+            <table class='striped cluster'>
+                <tbody>
+                    {{#each stories}}
+                    <tr class='raw_timeline_tr' forStory={{key}}>
+                        <td>
+                            <label class='story_checkbox_wrapper' forCluster={{../key}} forStory={{key}}>
+                                <input
+                                    class='story_checkbox filled-in'
+                                    type='checkbox'
+                                    {{#if selected}} checked="checked" {{/if}}
+                                    {{#unless ../selected}} disabled="disabled" {{/unless}}
+                                />
+                                <span></span>
+                            </label></td>
+                        <td><a href={{link}} target='_blank'>{{title}}</a></td>
+                        <td>{{convert_timestamp timestamp}}</td>
+                        <td>{{feedname}}</td>
+                    </tr>
+                    {{/each}}
+                </tbody>
+            </table>
+        </div>
+    </li>
+</script>
+
+<script id='timeline_accordion_template' type='text/x-handlebars-template'>
+    <div id='timeline_accordion'>
+        {{#each clusters}}
+        <h6 forCluster={{key}}>{{convert_timestamp_date timestamp}} - {{title}}</h6>
+        <div>
+            <div class='timeline_div' forCluster={{key}}></div>
+        </div>
+        {{/each}}
+    </div>
+</script>
+
+<script id='timeline_item_template' type='text/x-handlebars-template'>
+<div style='text-align:left'>
+    <p style='color:gray'>{{convert_timestamp timestamp}}</p>
+    <p><a href={{link}} target='_blank'>{{title}}</a></p>
+    <p style='color:gray'>{{feedname}}</p>
+</div>
+</script>
+
+</script>
+<script id='timeline_export_template' type='text/x-handlebars-template'>
+{{{handlebars_js}}}
+{{{jquery_js}}}
+{{{jquery_ui_js}}}
+{{{jquery_ui_css}}}
+{{{visjs_js}}}
+{{{visjs_css}}}
+{{{container_template}}}
+{{{item_template}}}
+<div id='export_timeline_container'>
+</div>
+{{{generation_script}}}
+</script>
+
+<script id='timeline_generation_template' type='text/x-handlebars-template'>
+function convert_timestamp(timestamp, precision='time') {
+    // Precision: 'time' for HH:MM; 'date' for date only.
+    var date_obj = new Date(timestamp);
+    var year = date_obj.getFullYear().toString();
+    var month = (date_obj.getMonth() + 1).toString().padStart(2, '0');
+    var day = date_obj.getDate().toString().padStart(2, '0');
+    var hour = date_obj.getHours().toString().padStart(2, '0');
+    var minutes = date_obj.getMinutes().toString().padStart(2, '0');
+    if(precision == 'time')
+        return (year + '-' + month + '-' + day + ' ' + hour + ':' + minutes);
+    return (year + '-' + month + '-' + day);
+}
+
+Handlebars.registerHelper('convert_timestamp_date', function(timestamp) {
+    return convert_timestamp(timestamp, 'date');
+})
+
+Handlebars.registerHelper('convert_timestamp', function(timestamp) {
+    return convert_timestamp(timestamp);
+});
+
+Handlebars.registerHelper('numkeys', function(obj) {
+    return Object.keys(obj).length;
+});
+
+Handlebars.registerHelper('convert_timestamp_date', function(timestamp) {
+    return convert_timestamp(timestamp, 'date');
+})
+
+Handlebars.registerHelper('convert_timestamp', function(timestamp) {
+    return convert_timestamp(timestamp);
+});
+
+Handlebars.registerHelper('numkeys', function(obj) {
+    return Object.keys(obj).length;
+});
+
+var final_timeline_list = {{{final_timeline_list}}};
+
+var timeline_container_source = document.getElementById('timeline_accordion_template');
+var timeline_container_template = Handlebars.compile(timeline_container_source.innerHTML);
+$('#export_timeline_container').html(timeline_container_template({clusters: final_timeline_list}));
+
+var template_source = document.getElementById('timeline_item_template').innerHTML;
+var template = Handlebars.compile(template_source);
+
+var timeline_options = {
+    template: template
+}
+
+var vis_timelines = {};
+var vis_datasets = {};
+
+for(var idx in final_timeline_list) {
+    vis_datasets[final_timeline_list[idx].key] = new vis.DataSet(final_timeline_list[idx].stories.map(function(item) {
+        return {
+            id: item.key,
+            start: new Date(item.timestamp),
+            timestamp: item.timestamp,
+            title: item.title,
+            content: item.title,
+            link: item.link,
+            feedname: item.feedname
+        }
+    }));
+}
+
+$('#timeline_accordion').accordion({
+    animate: 200,
+    active: false,
+    collapsible: true,
+    heightStyle: "content",
+    beforeActivate: function(event, ui) {
+        var cluster_key = ui.newHeader.attr('forCluster');
+        console.log(cluster_key);
+        var timeline_container = ui.newPanel.find('.timeline_div')[0];
+        if(timeline_container && (!(cluster_key in vis_timelines))) {
+            vis_timelines[cluster_key] = new vis.Timeline(timeline_container, vis_datasets[cluster_key], timeline_options);
+        }
+    }
+});
+</script>
+{% endraw %}
+
+<script src='static/js/historian.js'></script>
+</body>
+</html>

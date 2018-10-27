@@ -1,0 +1,45 @@
+table.cluster td.time {
+    width: 25%;
+    word-wrap: normal
+}
+
+table.cluster td.title {
+    width: 50%;
+    word-wrap: normal
+}
+
+table.cluster td.publication {
+    width: 25%;
+    word-wrap: normal
+}
+
+#export_editor {
+    height: 500px;
+}
+
+#droppable_trash {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    display: none;
+}
+
+.draggable_cluster_dragging {
+    background-color: gray !important;
+    border: 1px solid black;
+}
+
+span.raw_timeline_timestamp {
+    background-color: #CACFD2;
+    display: inline-block;
+    vertical-align: middle;
+    width: 100px !important;
+    padding-left: 5px;
+    padding-right: 5px;
+    border-radius: 2px;
+    margin-right: 5px
+}
+
+.timeline_panel {
+    height: 500px;
+}

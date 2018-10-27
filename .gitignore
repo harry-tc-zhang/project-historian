@@ -1,0 +1,21 @@
+.DS_Store
+
+# Do not store FastText model in the repo
+/project_historian/models
+
+# Do not store the cached RSS data in the repo
+/project_historian/rss_data/rss_database.db
+/project_historian/Cached
+
+# Do not store .pyc files
+*.pyc
+
+# Do not store __pycache__ directories
+/prject_historian_server/__pycache__
+
+# Do not store scripts related to the demo server
+/project_historian_server/pull.sh
+/project_historian_server/push.sh
+
+# Do not store sass cache from Materialize
+/project_historian_server/static/css/.sass-cache/
