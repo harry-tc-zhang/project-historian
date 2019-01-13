@@ -19,7 +19,8 @@ def run_model(db_path, model_path, model_type, model_params):
     results = cursor.execute(get_text_command)
     with open(temp_fpath, 'w', newline='', encoding='utf-8') as tmpfile:
         for r in results:
-            tmpfile.write(r[0] + '.\n')
+            if r[0] is not None:
+                tmpfile.write(r[0] + '.\n')
     conn.close()
 
     model_fpath = os.path.join(model_path, 'fasttext_model')

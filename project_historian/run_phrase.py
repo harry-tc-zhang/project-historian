@@ -38,7 +38,6 @@ def clean_token(t):
     return []
 
 
-@profile
 def run_phrases(db_path, models_path):
     print("Preprocessing text...")
     start_time = clock()
