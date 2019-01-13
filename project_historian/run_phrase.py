@@ -38,6 +38,7 @@ def clean_token(t):
     return []
 
 
+@profile
 def run_phrases(db_path, models_path):
     print("Preprocessing text...")
     start_time = clock()
@@ -58,15 +59,17 @@ def run_phrases(db_path, models_path):
         'COALESCE(content, " ")'
         ')'
     )
-    get_rawtext_command = 'SELECT id, {} FROM rss_data'.format(full_text_snippet)
-    rawtext_results = db_cursor.execute(get_rawtext_command).fetchall()
-
+    get_rawtext_command = 'SELECT id, {} FROM rss_data ORDER BY cachedate DESC'.format(full_text_snippet)
     # rawtext_dict stores each iteration of the sentence streams
     # for the next training stage/.
     rawtext_dict = {}
-    for r in rawtext_results:
-        rawtext_dict[r[0]] = {
-            'raw': r[1],
+    execution = db_cursor.execute(get_rawtext_command)
+    while True:
+        row = execution.fetchone()
+        if row is None:
+            break
+        rawtext_dict[row[0]] = {
+            'raw': row[1]
         }
 
     # Generate the initial sentence stream for training level 1 phrases.

@@ -10,19 +10,17 @@ def run_model(db_path, model_path, model_type, model_params):
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
-    get_text_command = 'SELECT preprocessed FROM rss_data'
-    texts = []
-    results = cursor.execute(get_text_command)
-    for r in results:
-        texts.append(r[0])
-    conn.close()
-
     if not os.path.isdir(model_path):
         os.makedirs(model_path)
     temp_fpath = os.path.join(model_path, '__ft_temp.txt')
+
+    get_text_command = 'SELECT preprocessed FROM rss_data ORDER BY cachedate DESC'
+    texts = []
+    results = cursor.execute(get_text_command)
     with open(temp_fpath, 'w', newline='', encoding='utf-8') as tmpfile:
-        for t in texts:
-            tmpfile.write(t + ' .\n')
+        for r in results:
+            tmpfile.write(r[0] + '.\n')
+    conn.close()
 
     model_fpath = os.path.join(model_path, 'fasttext_model')
     model = None
