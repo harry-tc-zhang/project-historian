@@ -38,9 +38,48 @@ def clean_token(t):
     return []
 
 
+# Function for tokenizing an article using NLTK functions.
+def tokenize_article(article):
+    sentences = word_tokenize(article)
+    sent_tokens = [word_tokenize(sentence) for sentence in sentences if len(sentence.split()) > 0]
+    stream_tokens = [sum([clean_token(token) for token in sentence], []) for sentence in sent_tokens]
+    return stream_tokens
+
+
+class ArticleTokenIterator:
+    def __init__(self, db_execution):
+        self.db_execution = db_execution
+        self.current_article_tokens = []
+        self.current_token_index = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        # If we have exhausted an article, tokenize the next article.
+        if self.current_token_index >= len(self.current_article_tokens):
+            # While loop to ensure that the next article is non-empty.
+            while True:
+                row = self.db_execution.fetchone()
+                if row is None:
+                    raise StopIteration
+                self.current_token_index = 0
+                # Sentences are splitted and tokenized using NLTK functions.
+                tokens = tokenize_article(row[1])
+                if len(tokens) > 0:
+                    self.current_article_tokens = tokens
+                    break
+        next_val = self.current_article_tokens[self.current_token_index]
+        return next_val
+
+
 def run_phrases(db_path, models_path):
     print("Preprocessing text...")
     start_time = clock()
+
+    # Create model directory if it doesn't exist
+    if not os.path.isdir(models_path):
+        os.makedirs(models_path)
 
     # List of stopwords.
     # Single letters are added to detect cases such as "donald j trump".
@@ -63,57 +102,55 @@ def run_phrases(db_path, models_path):
     # for the next training stage/.
     rawtext_dict = {}
     execution = db_cursor.execute(get_rawtext_command)
-    while True:
-        row = execution.fetchone()
-        if row is None:
-            break
-        rawtext_dict[row[0]] = {
-            'raw': row[1]
-        }
-
-    # Generate the initial sentence stream for training level 1 phrases.
-    # Sentences are splitted and tokenized using NLTK functions.
-    sent_stream = []
-    for k in rawtext_dict.keys():
-        sentences = sent_tokenize(rawtext_dict[k]['raw'])
-        sent_tokens = [word_tokenize(sentence) for sentence in sentences if len(sentence.split()) > 0]
-        stream_tokens = [sum([clean_token(token) for token in sentence], []) for sentence in sent_tokens]
-        rawtext_dict[k]['stream'] = stream_tokens
-        sent_stream += stream_tokens
+    raw_stream = ArticleTokenIterator(execution)
 
     # Train "level 1" phrases.
     # A relatively high threshold is set for level 1 to train on
     # "strong" phrases, mostly names, e.g. Bob Corker, Mike Pence.
-    lv1_phrases = Phrases(sent_stream, common_terms=swlist, threshold=1000.0)
+    print("Training level 1 phraser...")
+    lv1_phrases = Phrases(raw_stream, common_terms=swlist, threshold=1000.0)
     lv1_phraser = Phraser(lv1_phrases)
 
-    # Use level 1 phraser to transform the corpus so that each phrase is replaced with a token,
+    # Command to update the "preprocessed" column of the database.
+    update_template = (
+        'UPDATE rss_data SET preprocessed=? '
+        'WHERE id=?'
+    )
+
+    # Use level 1 phraser to transform the corpus so that each phrase is replaced with a token, and temporarily store the results in the "preprocessed" column
+    print("Updating database with level 1 processing results...")
+    lv1_articles_execution = db_cursor.execute(get_rawtext_command)
+    update_cursor = db_connection.cursor()
+    while True:
+        row = lv1_articles_execution.fetchone()
+        if row is None:
+            break
+        update_cursor.execute(update_template.format(row[0], ' '.join(lv1_phraser[tokenize_article(row[1])])))
+    db_connection.commit()
+
+    # Command for getting id and initial preprocessed text after level 1 phraser.
+    get_preprocessed_command = 'SELECT id, preprocessed FROM rss_data ORDER BY cachedate DESC'
+
     # A level 2 phraser is trained on this new sentence stream.
-    lv1_sent_stream = []
-    for k in rawtext_dict.keys():
-        rawtext_dict[k]['lv1_stream'] = list(lv1_phraser[rawtext_dict[k]['stream']])
-        lv1_sent_stream += rawtext_dict[k]['lv1_stream']
+    lv1_preprocessed_execution = db_cursor.execute(get_preprocessed_command)
+    lv1_sent_stream = ArticleTokenIterator(lv1_preprocessed_execution)
 
     # Train "level 2" phrases.
     # A smaller threshold is chosen as a catch-all now that the stronger associations
     # have been captured.
+    print("Training level 2 phraser...")
     lv2_phrases = Phrases(lv1_sent_stream, common_terms=swlist, threshold=150)
     lv2_phraser = Phraser(lv2_phrases)
 
     # Use the level 2 phraser to transform the corpus from level 1 phraser
     # and then turn the transformed phrases back to the original corpus.
-    for k in rawtext_dict.keys():
-        lv2_stream = lv2_phraser[rawtext_dict[k]['lv1_stream']]
-        lv2_sentences = [' '.join(lv2_sent) for lv2_sent in lv2_stream]
-        rawtext_dict[k]['phrasedtext'] = ' '.join(lv2_sentences)
-
-    # Update the database with preprocessed text.
-    update_template = (
-        'UPDATE rss_data SET preprocessed=? '
-        'WHERE id=?'
-    )
-    for k in rawtext_dict.keys():
-        db_cursor.execute(update_template, (rawtext_dict[k]['phrasedtext'], k))
+    print("Saving level 2 results...")
+    lv2_articles_execution = db_cursor.execute(get_preprocessed_command)
+    while True:
+        row = lv2_articles_execution.fetchone()
+        if row is None:
+            break
+        update_cursor.execute(update_template.format(row[0], ' '.join(lv2_phraser[tokenize_article(row[1])])))
     db_connection.commit()
 
     db_connection.close()
