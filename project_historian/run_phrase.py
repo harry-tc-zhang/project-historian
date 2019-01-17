@@ -40,7 +40,7 @@ def clean_token(t):
 
 # Function for tokenizing an article using NLTK functions.
 def tokenize_article(article):
-    sentences = word_tokenize(article)
+    sentences = sent_tokenize(article)
     sent_tokens = [word_tokenize(sentence) for sentence in sentences if len(sentence.split()) > 0]
     stream_tokens = [sum([clean_token(token) for token in sentence], []) for sentence in sent_tokens]
     return stream_tokens
@@ -70,6 +70,7 @@ class ArticleTokenIterator:
                     self.current_article_tokens = tokens
                     break
         next_val = self.current_article_tokens[self.current_token_index]
+        self.current_token_index += 1
         return next_val
 
 
@@ -77,7 +78,21 @@ def run_phrases(db_path, models_path):
     print("Preprocessing text...")
     start_time = clock()
 
-    # Create model directory if it doesn't exist
+    # Create a temporary database to store intermediate results.
+    temp_db_path = "temp.db"
+    temp_db_connection = sqlite3.connect(temp_db_path)
+    temp_db_cursor = temp_db_connection.cursor()
+    create_temp_table_cmd = (
+        'CREATE TABLE IF NOT EXISTS rss_data('
+        'id TEXT, '
+        'preprocessed TEXT, '
+        'PRIMARY KEY(id)'
+        ')'
+    )
+    temp_db_cursor.execute(create_temp_table_cmd)
+    temp_db_connection.commit()
+
+    # Create model directory if it doesn't exist.
     if not os.path.isdir(models_path):
         os.makedirs(models_path)
 
@@ -112,6 +127,10 @@ def run_phrases(db_path, models_path):
     lv1_phraser = Phraser(lv1_phrases)
 
     # Command to update the "preprocessed" column of the database.
+    insert_template = (
+        'INSERT OR REPLACE INTO rss_data (id, preprocessed) '
+        'VALUES (?, ?)'
+    )
     update_template = (
         'UPDATE rss_data SET preprocessed=? '
         'WHERE id=?'
@@ -125,14 +144,14 @@ def run_phrases(db_path, models_path):
         row = lv1_articles_execution.fetchone()
         if row is None:
             break
-        update_cursor.execute(update_template.format(row[0], ' '.join(lv1_phraser[tokenize_article(row[1])])))
-    db_connection.commit()
+        temp_db_cursor.execute(insert_template, (row[0], ' '.join(lv1_phraser[sum(tokenize_article(row[1]), [])])))
+    temp_db_connection.commit()
 
     # Command for getting id and initial preprocessed text after level 1 phraser.
-    get_preprocessed_command = 'SELECT id, preprocessed FROM rss_data ORDER BY cachedate DESC'
+    get_preprocessed_command = 'SELECT id, preprocessed FROM rss_data'
 
     # A level 2 phraser is trained on this new sentence stream.
-    lv1_preprocessed_execution = db_cursor.execute(get_preprocessed_command)
+    lv1_preprocessed_execution = temp_db_cursor.execute(get_preprocessed_command)
     lv1_sent_stream = ArticleTokenIterator(lv1_preprocessed_execution)
 
     # Train "level 2" phrases.
@@ -145,15 +164,16 @@ def run_phrases(db_path, models_path):
     # Use the level 2 phraser to transform the corpus from level 1 phraser
     # and then turn the transformed phrases back to the original corpus.
     print("Saving level 2 results...")
-    lv2_articles_execution = db_cursor.execute(get_preprocessed_command)
+    lv2_articles_execution = temp_db_cursor.execute(get_preprocessed_command)
     while True:
         row = lv2_articles_execution.fetchone()
         if row is None:
             break
-        update_cursor.execute(update_template.format(row[0], ' '.join(lv2_phraser[tokenize_article(row[1])])))
+        db_cursor.execute(update_template, (' '.join(lv2_phraser[sum(tokenize_article(row[1]), [])]), row[0]))
     db_connection.commit()
 
     db_connection.close()
+    temp_db_connection.close()
 
     # Save the trained phrase models just in case.
     lv1_phrases.save(os.path.join(models_path, 'lv1_phrases'))
@@ -161,7 +181,11 @@ def run_phrases(db_path, models_path):
     lv2_phrases.save(os.path.join(models_path, 'lv2_phrases'))
     lv2_phraser.save(os.path.join(models_path, 'lv2_phraser'))
 
+    # Delete the temporary database.
+    os.remove(temp_db_path)
+
     end_time = clock()
+
     print('Preprocessing done in {} seconds.'.format(int(end_time - start_time)))
 
     return
