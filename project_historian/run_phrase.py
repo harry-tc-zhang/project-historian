@@ -176,10 +176,10 @@ def run_phrases(db_path, models_path):
     temp_db_connection.close()
 
     # Save the trained phrase models just in case.
-    lv1_phrases.save(os.path.join(models_path, 'lv1_phrases'))
-    lv1_phraser.save(os.path.join(models_path, 'lv1_phraser'))
-    lv2_phrases.save(os.path.join(models_path, 'lv2_phrases'))
-    lv2_phraser.save(os.path.join(models_path, 'lv2_phraser'))
+    # lv1_phrases.save(os.path.join(models_path, 'lv1_phrases'))
+    # lv1_phraser.save(os.path.join(models_path, 'lv1_phraser'))
+    # lv2_phrases.save(os.path.join(models_path, 'lv2_phrases'))
+    # lv2_phraser.save(os.path.join(models_path, 'lv2_phraser'))
 
     # Delete the temporary database.
     os.remove(temp_db_path)
