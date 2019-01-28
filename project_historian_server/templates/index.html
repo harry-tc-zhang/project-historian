@@ -20,10 +20,10 @@
     </div>
 </nav>
 
-<div class='container' style='margin-top:20px'>
-    <div class='row'>
-        <div class='col s12'>
-            <div class='card'>
+<div class='ph-container'>
+    <div class='row ph-row debug-border'>
+        <div class='col s12 m10 offset-m1 l8 offset-l2 ph-slide debug-border ph-flex-col' id='col-keywords'>
+            <div class='card' id='card-keywords'>
                 <div class='card-content'>
                     <span class='card-title'>Create timelines from simple queries</span>
                     <br>
@@ -33,8 +33,8 @@
                     <form>
                         <div class="row" style="margin-bottom:0px">
                             <div class='input-field col s12' style='margin-bottom:0px'>
-                                <input id='form_keywords' type='text'>
-                                <label for='form_keywords'>Keywords</label>
+                                <input id='keywords-input' type='text' />
+                                <label for='keywords-input'>Keywords</label>
                             </div>
                         </div>
                     </form>
@@ -43,13 +43,9 @@
                     <a id='submit_keywords' href='#'>Search</a>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <div class='row' id='card_exp_keywords' style='display:none'>
-        <div class='col s12'>
-            <div class='card'>
-                <div class='card-content'>
+            <div class='card ph-flex-col ph-fadein ph-pre-fadein' id='card-exp-keywords' style='display:none; flex-grow:2'>
+                <div class='card-content ph-flex-dominate'>
                     <span class='card-title'>Related keywords</span>
                     <br>
                     <p>Here are some keywords that might help broaden your search.</p>
@@ -62,32 +58,28 @@
                 </div>
             </div>
         </div>
-    </div>
 
-    <div class='row' id='timeline_raw' style='display:none'>
-        <div class='col s12'>
-            <div class='card'>
-                <div class='card-content'>
+        <div class='col s12 m8 l8 ph-pre-fadein ph-flex-col ph-fadein' id='col-timeline-raw' style='display:none'>
+            <div class='card ph-fill-col ph-flex-col'>
+                <div class='card-content ph-flex-dominate ph-flex-col'>
                     <span class='card-title'>Here are the events</span>
                     <br>
                     <p>You can give each event a title, edit them or remove them entirely.</p>
                     <br>
-                    <div id='timeline_raw_content'></div>
+                    <div id='timeline_raw_content' class='ph-flex-dominate ph-vertical-scroll'></div>
                 </div>
                 <div class='card-action'>
                     <a id='submit_timeline' href='#'>Make the timeline</a>
                 </div>
             </div>
         </div>
-    </div>
 
-    <div class='row' id='timeline_final' style='display:none'>
-        <div class='col s12'>
-            <div class='card'>
-                <div class='card-content'>
+        <div class='col s12 m6 l7 ph-pre-fadein ph-flex-col' id='col-timeline-final' style='display:none'>
+            <div class='card ph-fill-col ph-flex-col'>
+                <div class='card-content ph-flex-dominate ph-flex-col'>
                     <span class='card-title'>Here is the timeline</span>
                     <br>
-                    <div>
+                    <div class='ph-flex-dominate ph-vertical-scroll'>
                         <div id='timeline_container'></div>
                     </div>
                 </div>
@@ -155,11 +147,11 @@
 
 <script id='raw_timeline_item' type='text/x-handlebars-template'>
     <li class='timeline_raw_li' forCluster={{key}}>
-        <div class='collapsible-header'>
+        <div class='collapsible-header ph-flex-row'>
             <label forCluster={{key}} class='event_checkbox_wrapper'><input class='event_checkbox filled-in' type='checkbox' {{#if selected}} checked="checked" {{/if}}/><span></span></label>
-            <span class='raw_timeline_timestamp'>{{convert_timestamp_date timestamp}}</span>
-            <span class='raw_timeline_title' forCluster={{key}}>{{title}}</span>
-            <span class='new badge pink {{get_badge_accent stories}} timeline_raw_badge' forCluster={{key}} data-badge-caption='stories'>{{numkeys stories}}</span>
+            <span class='raw-timeline-timestamp'>{{convert_timestamp_date timestamp}}</span>
+            <span class='raw_timeline_title ph-flex-dominate' forCluster={{key}}>{{title}}</span>
+            <span class='new badge pink {{get_badge_accent stories}} timeline-raw-badge' forCluster={{key}} data-badge-caption='stories'>{{numkeys stories}}</span>
         </div>
         <div class='collapsible-body'>
             <div class='input-field' forCluster={{key}}>
@@ -210,7 +202,6 @@
 </div>
 </script>
 
-</script>
 <script id='timeline_export_template' type='text/x-handlebars-template'>
 {{{handlebars_js}}}
 {{{jquery_js}}}

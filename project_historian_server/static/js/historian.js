@@ -13,8 +13,11 @@ function convert_timestamp(timestamp, precision='time') {
     var day = date_obj.getDate().toString().padStart(2, '0');
     var hour = date_obj.getHours().toString().padStart(2, '0');
     var minutes = date_obj.getMinutes().toString().padStart(2, '0');
-    if(precision == 'time')
+    if(precision == 'time') {
         return (year + '-' + month + '-' + day + ' ' + hour + ':' + minutes);
+    } else if(precision == 'shortened') {
+        return (month + '/' + day + '/' + year.substring(2));
+    }
     return (year + '-' + month + '-' + day);
 }
 
@@ -56,9 +59,10 @@ function merge_clusters(ca, cb) {
     return nc;
 }
 
-function submit_query_keywords() {
+function submit_query_keywords(ui_callback) {
     // Actions after user presses "search"
-    var kw = $('#form_keywords').val();
+    var kw = $('#keywords-input').val();
+    console.log(kw);
     if(kw.length == 0) {
         return;
     }
@@ -76,8 +80,7 @@ function submit_query_keywords() {
         dataType: 'json',
         success: function(result) {
             console.log(result);
-            $('#card_exp_keywords').show();
-            var kw_rows = ''
+            var kw_rows = '';
             for(var i = 0; i < result['exp_keywords'].length; i ++) {
                 var new_row = ('Related to <div class="chip">' + result['exp_keywords'][i][0] + '</div>: ' );
                 for(var j = 1; j < result['exp_keywords'][i].length; j ++) {
@@ -96,11 +99,14 @@ function submit_query_keywords() {
                 exp_keywords[parseInt($(this).attr('keywordGroup'))].splice(rmIdx, 1);
                 console.log(exp_keywords);
             });
+            if(ui_callback) {
+                ui_callback();
+            }
         }
     });
 }
 
-function submit_expanded_keywords() {
+function submit_expanded_keywords(ui_callback) {
     // Actions after user presses "continue" in expanded keywords
     $('#progress').modal('open');
     update_progress({
@@ -124,12 +130,12 @@ function submit_expanded_keywords() {
                 icon: 'access_time',
                 text: 'Processing stories...'
             });
-            request_processing();
+            request_processing(ui_callback);
         }
     });
 }
 
-function request_processing() {
+function request_processing(ui_callback) {
     // Actions after the server completes the story query
     $.ajax({
         url: 'vectorize',
@@ -144,7 +150,7 @@ function request_processing() {
                 icon: 'access_time',
                 text: 'Clustering stories...'
             });
-            request_clustering();
+            request_clustering(ui_callback);
         }
     });
 }
@@ -164,7 +170,7 @@ function convert_to_display(cluster) {
     return rcluster;
 }
 
-function request_clustering() {
+function request_clustering(ui_callback) {
     // Actions after the server vectorizes stories
     $.ajax({
         url: 'cluster',
@@ -283,19 +289,23 @@ function request_clustering() {
             });
 
             $('.collapsible').collapsible();
-            $('#timeline_raw').show();
+            $('#timeline-raw').show();
             $('#progess_text').empty();
             $('#progress').modal('close');
 
+            /*
             $('html, body').animate({
                 scrollTop: $('#timeline_raw').offset().top
             }, 500);
+            */
+            if(ui_callback) {
+                ui_callback();
+            }
         }
     });
 }
 
-function show_timeline() {
-
+function show_timeline(ui_callback) {
     final_timeline_data = {};
 
     for(var key in timeline_data) {
@@ -339,7 +349,7 @@ function show_timeline() {
 
     var timeline_options = {
         template: template,
-    }
+    };
 
     var vis_timelines = {};
     var vis_datasets = {};
@@ -373,11 +383,9 @@ function show_timeline() {
         }
     });
 
-    $('#timeline_final').show();
-
-    $('html, body').animate({
-        scrollTop: $('#timeline_final').offset().top
-    }, 500);
+    if(ui_callback) {
+        ui_callback();
+    }
 }
 
 function export_graphics(export_editor) {
@@ -454,6 +462,43 @@ function export_excel(data) {
     })
 }
 
+function ui_show_expanded_keywords() {
+    // Show the expanded keywords card and fade it in.
+    $('#card-exp-keywords').show();
+    $('#card-exp-keywords').toggleClass('ph-pre-fadein', false);
+    // Remove the fade in class as it's no longer useful.
+    setTimeout(function() {
+        $('#card-exp-keywords').toggleClass('ph-fadein', false);
+    }, 1000);
+}
+
+function ui_show_raw_timeline() {
+    // Shift the keywords cards to a column on the left.
+    $('#col-keywords').toggleClass('m10 offset-m1 l8 offset-l2', false);
+    $('#col-keywords').toggleClass('m4 l4', true);
+    // Show the column for the raw timeline and fade it in.
+    $('#col-timeline-raw').show();
+    $('#col-timeline-raw').toggleClass('ph-pre-fadein', false);
+    // Remove the fadein class as it is no longer useful.
+    setTimeout(function() {
+        $('#col-timeline-raw').toggleClass('ph-fadein', false);
+        $('#col-timeline-raw').toggleClass('ph-slide', true);
+    }, 1000);
+}
+
+function ui_show_final_timeline() {
+    // Hide the keywords columns.
+    $('#col-keywords').toggleClass('ph-fadein', true);
+    $('#col-keywords').toggleClass('ph-pre-fadein', true);
+    $('#col-keywords').hide();
+    // Shift the column for the raw timeline to the left.
+    $('#col-timeline-raw').toggleClass('m8 l8', false);
+    $('#col-timeline-raw').toggleClass('m6 l5', true);
+    // Fade the final timeline column in.
+    $('#col-timeline-final').show();
+    $('#col-timeline-final').toggleClass('ph-pre-fadein', false);
+}
+
 $(document).ready(function() {
     $('.modal').modal({
         dismissible: false
@@ -464,11 +509,11 @@ $(document).ready(function() {
     export_editor.session.setMode('ace/mode/html');
 
     Handlebars.registerHelper('convert_timestamp_date', function(timestamp) {
-        return convert_timestamp(timestamp, 'date');
-    })
+        return convert_timestamp(timestamp, 'shortened');
+    });
 
     Handlebars.registerHelper('convert_timestamp', function(timestamp) {
-        return convert_timestamp(timestamp);
+        return convert_timestamp(timestamp, 'time');
     });
 
     Handlebars.registerHelper('numkeys', function(obj) {
@@ -482,27 +527,28 @@ $(document).ready(function() {
     Handlebars.registerPartial('item_partial', $('#raw_timeline_item').html());
 
     $('#submit_keywords').click(function() {
-        submit_query_keywords();
+        console.log('clicked');
+        submit_query_keywords(ui_show_expanded_keywords);
     });
 
-    $('#form_keywords').keydown(function(event) {
+    $('#keywords-input').keydown(function(event) {
         if($(this).val().length > 0) {
             $('#submit_keywords').removeClass('disabled');
         }
         if(event.which == 13) {
-            submit_query_keywords();
+            submit_query_keywords(ui_show_expanded_keywords);
         }
     });
 
     $('#submit_new_kw').click(function(event) {
         event.preventDefault();
         console.log(exp_keywords);
-        submit_expanded_keywords();
+        submit_expanded_keywords(ui_show_raw_timeline);
     });
 
     $('#submit_timeline').click(function(event) {
         event.preventDefault();
-        show_timeline();
+        show_timeline(ui_show_final_timeline);
     });
 
     M.Tooltip.init($('#export_json')[0], {
@@ -538,7 +584,7 @@ $(document).ready(function() {
     $('#export_excel').click(function(event) {
         event.preventDefault();
         export_excel(final_timeline_data);
-    })
+    });
 
     $('#export_timeline').click(function(event) {
         event.preventDefault();

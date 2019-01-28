@@ -17,23 +17,19 @@ table.cluster td.publication {
     height: 500px;
 }
 
-#droppable_trash {
-    position: fixed;
-    bottom: 10px;
-    right: 10px;
-    display: none;
-}
 
 .draggable_cluster_dragging {
     background-color: gray !important;
     border: 1px solid black;
 }
 
-span.raw_timeline_timestamp {
+span.raw-timeline-timestamp {
     background-color: #CACFD2;
     display: inline-block;
     vertical-align: middle;
-    width: 100px !important;
+    width: 64px !important;
+    white-space: nowrap;
+    font-size: smaller;
     padding-left: 5px;
     padding-right: 5px;
     border-radius: 2px;
@@ -42,4 +38,84 @@ span.raw_timeline_timestamp {
 
 .timeline_panel {
     height: 500px;
+}
+
+.ph-slide {
+    transition: width 0.5s ease, margin 0.5s ease;
+}
+
+.ph-pre-fadein {
+    opacity: 0;
+}
+
+.ph-fadein {
+    transition: opacity 0.5s ease-in;
+}
+
+.ph-full-height {
+    height: 100% !important;
+}
+
+.ph-container {
+    width: 100%;
+    margin: 0px;
+    padding: 16px;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.ph-row {
+    margin: 0px;
+    /*height: 100%;*/
+    flex-grow: 1;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+}
+
+.ph-flex-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.ph-col {
+    height: 100%;
+}
+
+.ph-flex-col {
+    display: flex;
+    flex-direction: column;
+}
+
+.ph-fill-col {
+    flex-grow: 1;
+}
+
+.ph-flex-dominate {
+    flex-grow: 2;
+}
+
+.ph-vertical-scroll {
+    overflow-y: scroll;
+}
+
+.debug-border {
+    /*border: 1px solid black;*/
+}
+
+.timeline-raw-badge {
+    width: 64px !important;
+    white-space: nowrap;
+}
+
+body {
+    display: flex;
+    flex-flow: column;
+    height: 100vh;
+}
+
+nav {
+    flex: 0 1 auto;
 }
