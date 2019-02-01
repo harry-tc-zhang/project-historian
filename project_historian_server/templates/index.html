@@ -184,14 +184,14 @@
 </script>
 
 <script id='timeline_accordion_template' type='text/x-handlebars-template'>
-    <div id='timeline_accordion'>
-        {{#each clusters}}
+    {{#each clusters}}
+    <div class='timeline_accordion'>
         <h6 forCluster={{key}}>{{convert_timestamp_date timestamp}} - {{title}}</h6>
         <div>
             <div class='timeline_div' forCluster={{key}}></div>
         </div>
-        {{/each}}
     </div>
+    {{/each}}
 </script>
 
 <script id='timeline_item_template' type='text/x-handlebars-template'>

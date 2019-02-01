@@ -368,7 +368,7 @@ function show_timeline(ui_callback) {
         }));
     }
 
-    $('#timeline_accordion').accordion({
+    $('.timeline_accordion').accordion({
         animate: 200,
         active: false,
         collapsible: true,
