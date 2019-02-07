@@ -58,6 +58,11 @@ def article_token_generator(db_execution):
             yield token_list
 
 
+def train_phraser(sentence_stream, stopword_list, threshold):
+    phrases_model = Phrases(sentence_stream, common_terms=stopword_list, threshold=threshold)
+    return Phraser(phrases_model)
+
+
 def run_phrases(db_path, models_path):
     print("Preprocessing text...")
     start_time = clock()
@@ -104,8 +109,7 @@ def run_phrases(db_path, models_path):
     # A relatively high threshold is set for level 1 to train on
     # "strong" phrases, mostly names, e.g. Bob Corker, Mike Pence.
     print("Training level 1 phraser...")
-    lv1_phrases = Phrases(raw_stream, common_terms=swlist, threshold=1000.0)
-    lv1_phraser = Phraser(lv1_phrases)
+    lv1_phraser = train_phraser(raw_stream, swlist, 1000.0)
 
     # Command to update the "preprocessed" column of the database.
     insert_template = (
@@ -139,8 +143,7 @@ def run_phrases(db_path, models_path):
     # A smaller threshold is chosen as a catch-all now that the stronger associations
     # have been captured.
     print("Training level 2 phraser...")
-    lv2_phrases = Phrases(lv1_sent_stream, common_terms=swlist, threshold=150)
-    lv2_phraser = Phraser(lv2_phrases)
+    lv2_phraser = train_phraser(lv1_sent_stream, swlist, 150.0)
 
     # Use the level 2 phraser to transform the corpus from level 1 phraser
     # and then turn the transformed phrases back to the original corpus.
