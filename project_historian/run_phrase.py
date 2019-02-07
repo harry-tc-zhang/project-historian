@@ -9,7 +9,7 @@ from nltk.tokenize import sent_tokenize, word_tokenize
 
 # Cleans up a token by making it lower-case
 # and removing any non-alphanumeric characters in case
-# they are compound words
+# they are compound words.
 def clean_token(t):
     if t.isalpha():
         return [t.lower()]
@@ -38,7 +38,8 @@ def clean_token(t):
     return []
 
 
-# Function for tokenizing an article using NLTK functions.
+# Function for tokenizing an article using NLTK functions. Tokenizes an article (string) into
+# a list of list of strings, where each list of strings is a sentence.
 def tokenize_article(article):
     sentences = sent_tokenize(article)
     sent_tokens = [word_tokenize(sentence) for sentence in sentences if len(sentence.split()) > 0]
@@ -46,32 +47,15 @@ def tokenize_article(article):
     return stream_tokens
 
 
-class ArticleTokenIterator:
-    def __init__(self, db_execution):
-        self.db_execution = db_execution
-        self.current_article_tokens = []
-        self.current_token_index = 0
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        # If we have exhausted an article, tokenize the next article.
-        if self.current_token_index >= len(self.current_article_tokens):
-            # While loop to ensure that the next article is non-empty.
-            while True:
-                row = self.db_execution.fetchone()
-                if row is None:
-                    raise StopIteration
-                self.current_token_index = 0
-                # Sentences are splitted and tokenized using NLTK functions.
-                tokens = tokenize_article(row[1])
-                if len(tokens) > 0:
-                    self.current_article_tokens = tokens
-                    break
-        next_val = self.current_article_tokens[self.current_token_index]
-        self.current_token_index += 1
-        return next_val
+def article_token_generator(db_execution):
+    while True:
+        row = db_execution.fetchone()
+        if row is None:
+            break
+        # Results are in the format of (id, text)
+        tokens = tokenize_article(row[1])
+        for token_list in tokens:
+            yield token_list
 
 
 def run_phrases(db_path, models_path):
@@ -113,11 +97,8 @@ def run_phrases(db_path, models_path):
         ')'
     )
     get_rawtext_command = 'SELECT id, {} FROM rss_data ORDER BY cachedate DESC'.format(full_text_snippet)
-    # rawtext_dict stores each iteration of the sentence streams
-    # for the next training stage/.
-    rawtext_dict = {}
     execution = db_cursor.execute(get_rawtext_command)
-    raw_stream = ArticleTokenIterator(execution)
+    raw_stream = article_token_generator(execution)
 
     # Train "level 1" phrases.
     # A relatively high threshold is set for level 1 to train on
@@ -152,7 +133,7 @@ def run_phrases(db_path, models_path):
 
     # A level 2 phraser is trained on this new sentence stream.
     lv1_preprocessed_execution = temp_db_cursor.execute(get_preprocessed_command)
-    lv1_sent_stream = ArticleTokenIterator(lv1_preprocessed_execution)
+    lv1_sent_stream = article_token_generator(lv1_preprocessed_execution)
 
     # Train "level 2" phrases.
     # A smaller threshold is chosen as a catch-all now that the stronger associations
