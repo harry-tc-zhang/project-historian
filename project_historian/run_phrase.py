@@ -58,9 +58,87 @@ def article_token_generator(db_execution):
             yield token_list
 
 
-def train_phraser(sentence_stream, stopword_list, threshold):
+def train_phraser(sentence_stream, stopword_list, threshold, model_path, save_prefix):
     phrases_model = Phrases(sentence_stream, common_terms=stopword_list, threshold=threshold)
-    return Phraser(phrases_model)
+    phrases_model.save(os.path.join(model_path, '{}_phrases.bin'.format(save_prefix)))
+    phraser_model = Phraser(phrases_model)
+    phraser_model.save(os.path.join(model_path, '{}_phraser.bin'.format(save_prefix)))
+    return phraser_model
+
+
+def run_stage1_phrases(db_connection, temp_db_connection, swlist, models_path):
+    db_cursor = db_connection.cursor()
+    temp_db_cursor = temp_db_connection.cursor()
+    full_text_snippet = (
+        '('
+        'COALESCE(title, " ") '
+        '|| ". " || '
+        'COALESCE(summary, " ") '
+        '|| " " || '
+        'COALESCE(content, " ")'
+        ')'
+    )
+    get_rawtext_command = 'SELECT id, {} FROM rss_data ORDER BY cachedate DESC'.format(full_text_snippet)
+    execution = db_cursor.execute(get_rawtext_command)
+    raw_stream = article_token_generator(execution)
+
+    # Train "level 1" phrases.
+    # A relatively high threshold is set for level 1 to train on
+    # "strong" phrases, mostly names, e.g. Bob Corker, Mike Pence.
+    print("Training level 1 phraser...")
+    lv1_phraser = train_phraser(raw_stream, swlist, 1000.0, models_path, 'lv1')
+
+    # Command to update the "preprocessed" column of the database.
+    insert_template = (
+        'INSERT OR REPLACE INTO rss_data (id, preprocessed) '
+        'VALUES (?, ?)'
+    )
+
+    # Use level 1 phraser to transform the corpus so that each phrase is replaced with a token, and temporarily store the results in the "preprocessed" column
+    print("Updating database with level 1 processing results...")
+    lv1_articles_execution = db_cursor.execute(get_rawtext_command)
+    while True:
+        row = lv1_articles_execution.fetchone()
+        if row is None:
+            break
+        temp_db_cursor.execute(insert_template, (row[0], ' '.join(lv1_phraser[sum(tokenize_article(row[1]), [])])))
+    temp_db_connection.commit()
+
+
+def run_stage2_phrases(db_connection, temp_db_connection, swlist, models_path):
+    db_cursor = db_connection.cursor()
+    temp_db_cursor = temp_db_connection.cursor()
+
+    # Command for getting id and initial preprocessed text after level 1 phraser.
+    get_preprocessed_command = 'SELECT id, preprocessed FROM rss_data'
+
+    # A level 2 phraser is trained on this new sentence stream.
+    lv1_preprocessed_execution = temp_db_cursor.execute(get_preprocessed_command)
+    lv1_sent_stream = article_token_generator(lv1_preprocessed_execution)
+
+    # Train "level 2" phrases.
+    # A smaller threshold is chosen as a catch-all now that the stronger associations
+    # have been captured.
+    print("Training level 2 phraser...")
+    lv2_phraser = train_phraser(lv1_sent_stream, swlist, 150.0, models_path, 'lv2')
+
+    update_template = (
+        'UPDATE rss_data SET preprocessed=? '
+        'WHERE id=?'
+    )
+
+    # Use the level 2 phraser to transform the corpus from level 1 phraser
+    # and then turn the transformed phrases back to the original corpus.
+    print("Saving level 2 results...")
+    lv2_articles_execution = temp_db_cursor.execute(get_preprocessed_command)
+    while True:
+        row = lv2_articles_execution.fetchone()
+        if row is None:
+            break
+        db_cursor.execute(update_template, (' '.join(lv2_phraser[sum(tokenize_article(row[1]), [])]), row[0]))
+    db_connection.commit()
+
+    lv2_phraser.save(os.path.join(models_path, 'lv2_phraser'))
 
 
 def run_phrases(db_path, models_path):
@@ -91,79 +169,13 @@ def run_phrases(db_path, models_path):
 
     # Get all trainable text from the database.
     db_connection = sqlite3.connect(db_path)
-    db_cursor = db_connection.cursor()
-    full_text_snippet = (
-        '('
-        'COALESCE(title, " ") '
-        '|| ". " || '
-        'COALESCE(summary, " ") '
-        '|| " " || '
-        'COALESCE(content, " ")'
-        ')'
-    )
-    get_rawtext_command = 'SELECT id, {} FROM rss_data ORDER BY cachedate DESC'.format(full_text_snippet)
-    execution = db_cursor.execute(get_rawtext_command)
-    raw_stream = article_token_generator(execution)
 
-    # Train "level 1" phrases.
-    # A relatively high threshold is set for level 1 to train on
-    # "strong" phrases, mostly names, e.g. Bob Corker, Mike Pence.
-    print("Training level 1 phraser...")
-    lv1_phraser = train_phraser(raw_stream, swlist, 1000.0)
+    run_stage1_phrases(db_connection, temp_db_connection, swlist, models_path)
 
-    # Command to update the "preprocessed" column of the database.
-    insert_template = (
-        'INSERT OR REPLACE INTO rss_data (id, preprocessed) '
-        'VALUES (?, ?)'
-    )
-    update_template = (
-        'UPDATE rss_data SET preprocessed=? '
-        'WHERE id=?'
-    )
-
-    # Use level 1 phraser to transform the corpus so that each phrase is replaced with a token, and temporarily store the results in the "preprocessed" column
-    print("Updating database with level 1 processing results...")
-    lv1_articles_execution = db_cursor.execute(get_rawtext_command)
-    update_cursor = db_connection.cursor()
-    while True:
-        row = lv1_articles_execution.fetchone()
-        if row is None:
-            break
-        temp_db_cursor.execute(insert_template, (row[0], ' '.join(lv1_phraser[sum(tokenize_article(row[1]), [])])))
-    temp_db_connection.commit()
-
-    # Command for getting id and initial preprocessed text after level 1 phraser.
-    get_preprocessed_command = 'SELECT id, preprocessed FROM rss_data'
-
-    # A level 2 phraser is trained on this new sentence stream.
-    lv1_preprocessed_execution = temp_db_cursor.execute(get_preprocessed_command)
-    lv1_sent_stream = article_token_generator(lv1_preprocessed_execution)
-
-    # Train "level 2" phrases.
-    # A smaller threshold is chosen as a catch-all now that the stronger associations
-    # have been captured.
-    print("Training level 2 phraser...")
-    lv2_phraser = train_phraser(lv1_sent_stream, swlist, 150.0)
-
-    # Use the level 2 phraser to transform the corpus from level 1 phraser
-    # and then turn the transformed phrases back to the original corpus.
-    print("Saving level 2 results...")
-    lv2_articles_execution = temp_db_cursor.execute(get_preprocessed_command)
-    while True:
-        row = lv2_articles_execution.fetchone()
-        if row is None:
-            break
-        db_cursor.execute(update_template, (' '.join(lv2_phraser[sum(tokenize_article(row[1]), [])]), row[0]))
-    db_connection.commit()
+    run_stage2_phrases(db_connection, temp_db_connection, swlist, models_path)
 
     db_connection.close()
     temp_db_connection.close()
-
-    # Save the trained phrase models just in case.
-    # lv1_phrases.save(os.path.join(models_path, 'lv1_phrases'))
-    # lv1_phraser.save(os.path.join(models_path, 'lv1_phraser'))
-    # lv2_phrases.save(os.path.join(models_path, 'lv2_phrases'))
-    # lv2_phraser.save(os.path.join(models_path, 'lv2_phraser'))
 
     # Delete the temporary database.
     os.remove(temp_db_path)

@@ -15,7 +15,6 @@ def run_model(db_path, model_path, model_type, model_params):
     temp_fpath = os.path.join(model_path, '__ft_temp.txt')
 
     get_text_command = 'SELECT preprocessed FROM rss_data ORDER BY cachedate DESC'
-    texts = []
     results = cursor.execute(get_text_command)
     with open(temp_fpath, 'w', newline='', encoding='utf-8') as tmpfile:
         for r in results:
